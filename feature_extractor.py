@@ -3,7 +3,7 @@ import numpy  as np
 import pandas as pd
 
 
-def _feature_extractor(data, pokedex):
+def feature_extractor(data, pokedex):
     df_rows = []
     stat_keys = ['base_hp', 'base_atk', 'base_def', 'base_spa', 'base_spd', 'base_spe']
     boost_keys = ['atk', 'def', 'spa', 'spd', 'spe'] 
