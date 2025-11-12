@@ -350,5 +350,5 @@ def feature_extractor(data, pokedex):
         row['p1_vs_p2_known_power_ratio'] = p1_total_stats_sum / (1 + p2_known_stats_sum)
 
         df_rows.append(row)
-
-    return pd.DataFrame(df_rows).fillna(0)
+    with pd.option_context("future.no_silent_downcasting", True):
+        return pd.DataFrame(df_rows).infer_objects(copy=False)
