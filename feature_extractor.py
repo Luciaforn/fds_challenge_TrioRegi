@@ -69,6 +69,9 @@ def feature_extractor(data, pokedex):
         p1_se = p1_ne = p1_imm = p1_neu = 0
         p2_se = p2_ne = p2_imm = p2_neu = 0
 
+        p1_speed_advantage_turns = 0
+        p2_speed_advantage_turns = 0
+
         # Damage estimation on damaging turns (only when same defender stays)
         p1_damage_sum = 0.0
         p2_damage_sum = 0.0
