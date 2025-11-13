@@ -352,3 +352,135 @@ def feature_extractor(data, pokedex):
         df_rows.append(row)
     with pd.option_context("future.no_silent_downcasting", True):
         return pd.DataFrame(df_rows).infer_objects(copy=False)
+
+
+
+
+
+import pandas as pd
+import numpy as np
+
+def feature_extractor_2(battles: list) -> pd.DataFrame:
+    """
+    Estrae un set di feature fondamentali da un elenco di dati di battaglia.
+    
+    Args:
+        battles: Una lista di dizionari, dove ogni dizionario rappresenta
+                 una singola battaglia (caricata dal file .jsonl).
+
+    Returns:
+        Un DataFrame pandas con le feature ingegnerizzate.
+    """
+    df_rows = []
+    
+    # Definiamo le statistiche base per un'iterazione più semplice
+    base_stats = ['base_hp', 'base_atk', 'base_def', 'base_spa', 'base_spd', 'base_spe']
+
+    # Itera su ogni battaglia nella lista
+    for battle in battles:
+        features = {}
+
+        # --- ID e Target ---
+        features['battle_id'] = battle['battle_id']
+        if 'player_won' in battle:
+            # Convertiamo il booleano in intero (1 o 0) per i modelli
+            features['player_won'] = int(battle['player_won'])
+
+        # --- 1. Feature Statiche (Pre-Partita) ---
+        
+        p1_lead = battle['p1_team_details'][0]
+        p2_lead = battle['p2_lead_details']
+        p1_team = battle['p1_team_details']
+
+        for stat in base_stats:
+            # Confronto Lead vs Lead: Differenza nelle statistiche
+            features[f'lead_{stat}_diff'] = p1_lead[stat] - p2_lead[stat]
+            
+            # Statistiche Aggregate P1: Media del team
+            try:
+                p1_team_stat_values = [p[stat] for p in p1_team]
+                features[f'p1_team_avg_{stat}'] = np.mean(p1_team_stat_values)
+            except (TypeError, ValueError):
+                features[f'p1_team_avg_{stat}'] = 0 # Gestione di eventuali dati corrotti
+
+        # --- 2. Feature Dinamiche e di Stato (Dal Timeline) ---
+
+        # Inizializza i tracker dello stato del team
+        # Partiamo con HP=100 per tutti
+        p1_team_health = {p['name']: 100.0 for p in p1_team}
+        p2_team_health = {p2_lead['name']: 100.0} # Conosciamo solo il lead di P2
+
+        timeline = battle.get('battle_timeline', [])
+
+        # Valori di default se la timeline è vuota
+        features['last_turn_number'] = 0
+        features['final_hp_diff'] = 0.0
+        features['p1_last_hp_pct'] = 100.0
+        features['p2_last_hp_pct'] = 100.0
+        features['p1_last_status'] = 'none'
+        features['p2_last_status'] = 'none'
+        features['p1_last_stat_boosts_sum'] = 0
+        features['p2_last_stat_boosts_sum'] = 0
+
+        if timeline:
+            # Itera sul timeline per aggiornare lo stato di salute
+            for turn in timeline:
+                # Stato P1
+                p1_state = turn.get('p1_pokemon_state')
+                if p1_state and 'name' in p1_state:
+                    p1_team_health[p1_state['name']] = p1_state.get('hp_pct', 0)
+                
+                # Stato P2
+                p2_state = turn.get('p2_pokemon_state')
+                if p2_state and 'name' in p2_state:
+                    # Se è un nuovo Pokémon di P2, aggiungilo al tracker
+                    if p2_state['name'] not in p2_team_health:
+                        p2_team_health[p2_state['name']] = 100.0
+                    # Aggiorna la sua salute
+                    p2_team_health[p2_state['name']] = p2_state.get('hp_pct', 0)
+
+            # Estrai le feature dall'ULTIMO turno
+            last_turn = timeline[-1]
+            features['last_turn_number'] = last_turn.get('turn', 0)
+
+            # Stato finale P1
+            p1_final_state = last_turn.get('p1_pokemon_state', {})
+            features['p1_last_hp_pct'] = p1_final_state.get('hp_pct', 0)
+            # Gestisce 'status' che è None (null) o stringa vuota
+            features['p1_last_status'] = p1_final_state.get('status') or 'none' 
+            features['p1_last_stat_boosts_sum'] = sum(p1_final_state.get('stat_boosts', {}).values())
+
+            # Stato finale P2
+            p2_final_state = last_turn.get('p2_pokemon_state', {})
+            features['p2_last_hp_pct'] = p2_final_state.get('hp_pct', 0)
+            features['p2_last_status'] = p2_final_state.get('status') or 'none'
+            features['p2_last_stat_boosts_sum'] = sum(p2_final_state.get('stat_boosts', {}).values())
+            
+            # Differenza HP finale (molto predittiva)
+            features['final_hp_diff'] = features['p1_last_hp_pct'] - features['p2_last_hp_pct']
+
+        # --- 3. Feature di Stato Aggregate (Le più importanti) ---
+        # Calcolate *dopo* aver processato l'intero timeline
+        
+        # Conteggio Pokémon KO
+        features['p1_fainted_count'] = sum(1 for hp in p1_team_health.values() if hp == 0)
+        features['p2_fainted_count'] = sum(1 for hp in p2_team_health.values() if hp == 0)
+        
+        # Differenza KO (feature "d'oro")
+        features['fainted_pokemon_diff'] = features['p2_fainted_count'] - features['p1_fainted_count']
+        
+        # Quanti Pokémon di P2 abbiamo scoperto?
+        features['p2_discovered_team_size'] = len(p2_team_health)
+        
+        # Salute totale rimasta per team
+        features['p1_team_total_health_pct'] = sum(p1_team_health.values())
+        features['p2_team_total_health_pct'] = sum(p2_team_health.values())
+        features['total_team_health_diff'] = features['p1_team_total_health_pct'] - features['p2_team_total_health_pct']
+
+        df_rows.append(features)
+
+    # --- Creazione del DataFrame Finale ---
+    
+    # Usa il context manager richiesto e infer_objects per ottimizzare i tipi
+    with pd.option_context("future.no_silent_downcasting", True):
+        return pd.DataFrame(df_rows).infer_objects(copy=False)
