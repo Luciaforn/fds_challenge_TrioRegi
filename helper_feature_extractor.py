@@ -81,3 +81,23 @@ def build_pokedex(full_data_path):
     
     print("Pokedéx scansionato") 
     return pokedex
+
+_GEN1_BOOST_MULTIPLIERS = {
+    -6: 0.25, -5: 0.28, -4: 0.33, -3: 0.40, -2: 0.50, -1: 0.66,
+     0: 1.0,
+     1: 1.5,  2: 2.0,  3: 2.5,  4: 3.0,  5: 3.5,  6: 4.0
+}
+
+def get_effective_gen1_speed(base_speed, speed_boost, is_paralyzed):
+    if base_speed == 0:
+        return 0
+
+    # Applica i boost
+    boost_mult = _GEN1_BOOST_MULTIPLIERS.get(max(-6, min(6, speed_boost)), 1.0)
+    effective_speed = (base_speed * 2 + 5) * boost_mult # Calcolo statico approssimativo
+
+    # La Paralisi in Gen 1 riduce la velocità del 75% (moltiplica per 0.25)
+    if is_paralyzed:
+        effective_speed *= 0.25
+
+    return effective_speed

@@ -1,4 +1,4 @@
-from helper_feature_extractor import _ALL_TYPES, _get_pokemon_types, _type_multiplier, _norm_type
+from helper_feature_extractor import _ALL_TYPES, _get_pokemon_types, _type_multiplier, _norm_type, get_effective_gen1_speed
 import numpy  as np
 import pandas as pd
 
@@ -111,6 +111,8 @@ def feature_extractor(data, pokedex):
                 p2_state = turn.get('p2_pokemon_state', {})
                 p1_move = turn.get('p1_move_details')
                 p2_move = turn.get('p2_move_details')
+                p1_active_name = p1_state.get('name', '').lower()
+                p2_active_name = p2_state.get('name', '').lower()
 
                 # lists for averages/min
                 p1_hp_list.append(p1_state.get('hp_pct', 1.0))
@@ -121,6 +123,24 @@ def feature_extractor(data, pokedex):
                     p1_move_cats[p1_move.get('category')] += 1
                 if p2_move and p2_move.get('category') in p2_move_cats:
                     p2_move_cats[p2_move.get('category')] += 1
+
+                if p1_active_name in pokedex and p2_active_name in pokedex:
+                    p1_base_spe = pokedex[p1_active_name]['stats'].get('base_spe', 0)
+                    p2_base_spe = pokedex[p2_active_name]['stats'].get('base_spe', 0)
+
+                    p1_boost = p1_state.get('boosts', {}).get('spe', 0)
+                    p2_boost = p2_state.get('boosts', {}).get('spe', 0)
+
+                    p1_par = p1_state.get('status') == 'par'
+                    p2_par = p2_state.get('status') == 'par'
+
+                    p1_eff_spe = get_effective_gen1_speed(p1_base_spe, p1_boost, p1_par)
+                    p2_eff_spe = get_effective_gen1_speed(p2_base_spe, p2_boost, p2_par)
+
+                    if p1_eff_spe > p2_eff_spe:
+                        p1_speed_advantage_turns += 1
+                    elif p2_eff_spe > p1_eff_spe:
+                        p2_speed_advantage_turns += 1
 
                 # --- STAB + effectiveness (damaging only) ---
                 # P1 attacking -> defender is P2 active
@@ -312,6 +332,9 @@ def feature_extractor(data, pokedex):
         row['early10_p1_dmg_turns'] = early_p1_dmg
         row['early10_p2_dmg_turns'] = early_p2_dmg
         row['early10_dmg_turns_diff'] = early_p1_dmg - early_p2_dmg
+        row['p1_speed_advantage_turns'] = p1_speed_advantage_turns
+        row['p2_speed_advantage_turns'] = p2_speed_advantage_turns
+        row['speed_adv_turn_diff'] = p1_speed_advantage_turns - p2_speed_advantage_turns
 
         # === 5️⃣ P2 squadra rivelata (basata su Pokédex) ===
         p2_known_stats_by_key = {s: [] for s in stat_keys}
