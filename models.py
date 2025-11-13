@@ -4,7 +4,7 @@ from lightgbm import LGBMClassifier
 
 SEED = 42
 
-cat_model_1 = CatBoostClassifier(
+cat_model = CatBoostClassifier(
     iterations=300,
     learning_rate=0.03,
     depth=6, 
@@ -14,7 +14,7 @@ cat_model_1 = CatBoostClassifier(
     allow_writing_files=False
 )
 
-xgb_model_1 = XGBClassifier(
+xgb_model = XGBClassifier(
     objective='binary:logistic',
     random_state=SEED,
     tree_method='hist',
@@ -30,7 +30,7 @@ xgb_model_1 = XGBClassifier(
     subsample=0.8
 )
 
-lgbm_model_1 = LGBMClassifier(
+lgbm_model = LGBMClassifier(
     objective='binary',
     random_state=SEED,
     n_estimators=500, # Userà tutti i 500 estimators
