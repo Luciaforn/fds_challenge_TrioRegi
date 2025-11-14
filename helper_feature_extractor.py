@@ -49,11 +49,7 @@ def _type_multiplier(attacking_type, defending_types):
     return mult
 
 def build_pokedex(full_data_path):
-    """
-    Scansiona il dataset completo per creare un dizionario (Pokédex)
-    con le statistiche e i tipi di tutti i Pokémon trovati.
-    """
-    print(f"\nCostruzione Pokédex da '{full_data_path}'...")
+    print(f"\nBuilding the Pokedex from '{full_data_path}'...")
     pokedex = {}
     stat_keys = ['base_hp', 'base_atk', 'base_def', 'base_spa', 'base_spd', 'base_spe']
     try:
@@ -76,10 +72,10 @@ def build_pokedex(full_data_path):
                         if all(v > 0 for v in stats.values()) and types:
                             pokedex[name] = {'stats': stats, 'types': types}
     except FileNotFoundError:
-        print(f"ERRORE: Impossibile trovare '{full_data_path}' per il Pokédex.")
+        print(f"ERROR: {full_data_path} not found.")
         exit()
     
-    print("Pokedéx scansionato") 
+    print("Pokedex successfully created") 
     return pokedex
 
 _GEN1_BOOST_MULTIPLIERS = {
@@ -92,11 +88,11 @@ def get_effective_gen1_speed(base_speed, speed_boost, is_paralyzed):
     if base_speed == 0:
         return 0
 
-    # Applica i boost
+    # Appling the boosts
     boost_mult = _GEN1_BOOST_MULTIPLIERS.get(max(-6, min(6, speed_boost)), 1.0)
-    effective_speed = (base_speed * 2 + 5) * boost_mult # Calcolo statico approssimativo
+    effective_speed = (base_speed * 2 + 5) * boost_mult 
 
-    # La Paralisi in Gen 1 riduce la velocità del 75% (moltiplica per 0.25)
+    # Paralysis in Gen 1 reduces speed by 75% (multiply by 0.25)
     if is_paralyzed:
         effective_speed *= 0.25
 

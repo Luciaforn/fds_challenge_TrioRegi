@@ -8,12 +8,13 @@ def feature_extractor(data, pokedex):
     stat_keys = ['base_hp', 'base_atk', 'base_def', 'base_spa', 'base_spd', 'base_spe']
     boost_keys = ['atk', 'def', 'spa', 'spd', 'spe'] 
 
+    # === 1. STATIC FEATURE ===
     for battle in data: 
         row = {}
         row['battle_id'] = battle.get('battle_id', f"battle_{len(df_rows)}")
         row['player_won'] = battle.get('player_won', None)
 
-        # === 1️⃣ FEATURE STATICHE (P1 Team) ===
+        # === 1.1 Static feature: P1 Team ===
         p1_team = battle.get('p1_team_details', [])
         p1_stats = {s: [] for s in stat_keys}
         p1_types = []
@@ -28,7 +29,7 @@ def feature_extractor(data, pokedex):
             row[f'p1_type_{t}_count'] = p1_types.count(t)
         row['p1_type_diversity'] = len(set(p1_types))
 
-        # === 2️⃣ FEATURE STATICHE (P2 Lead) ===
+        # === 1.2 Static feature: P2 Lead ===
         p2_lead = battle.get('p2_lead_details', {})
         p2_lead_stats = {}
         p2_lead_types = []
@@ -42,7 +43,7 @@ def feature_extractor(data, pokedex):
             row[f'p2_lead_type_{t}_count'] = p2_lead_types.count(t)
         row['p2_lead_type_diversity'] = len(set(p2_lead_types))
 
-        # === 3️⃣ FEATURE DI BILANCIAMENTO (P1-Team vs P2-Lead) ===
+        # === 2. BALANCING FEATURES: P1-Team vs P2-Lead ===
         p1_total_sum = 0
         p2_lead_total_sum = 0
         for s in stat_keys:
@@ -54,7 +55,7 @@ def feature_extractor(data, pokedex):
         row['team_vs_lead_power_ratio'] = p1_total_sum / (1 + p2_lead_total_sum) 
         row['type_diversity_diff'] = row['p1_type_diversity'] - row['p2_lead_type_diversity'] 
 
-        # === 4️⃣ FEATURE DINAMICHE (Timeline) ===
+        # === 3. DYNAMIC FEATURE :Timeline ===
         timeline = battle.get('battle_timeline', [])
 
         p1_hp_list = []
@@ -62,7 +63,6 @@ def feature_extractor(data, pokedex):
         p1_move_cats = {'PHYSICAL': 0, 'SPECIAL': 0, 'STATUS': 0}
         p2_move_cats = {'PHYSICAL': 0, 'SPECIAL': 0, 'STATUS': 0}
 
-        # NEW: momentum/flow trackers
         p1_stab_count = p2_stab_count = 0
         p1_dmg_count = p2_dmg_count = 0
         p1_eff_sum = p2_eff_sum = 0.0
@@ -72,11 +72,11 @@ def feature_extractor(data, pokedex):
         p1_speed_advantage_turns = 0
         p2_speed_advantage_turns = 0
 
-        # Damage estimation on damaging turns (only when same defender stays)
+        # Damage estimation on damaging turns 
         p1_damage_sum = 0.0
         p2_damage_sum = 0.0
 
-        # KO counts (observed in timeline)
+        # KO counts 
         p1_kos_given = 0
         p1_kos_taken = 0
 
@@ -89,7 +89,7 @@ def feature_extractor(data, pokedex):
         p1_trap_turns = 0
         p2_trap_turns = 0
 
-        # Early-phase per-turn vectors (first 10 turns) for cheap summaries
+        # Early-phase per-turn vectors for cheap summaries
         early_turn_cap = 10
         early_p1_eff_list = []
         early_p2_eff_list = []
@@ -227,7 +227,6 @@ def feature_extractor(data, pokedex):
                     elif cur_p1_status == 'frz': p2_inflicted_frz += 1
 
                 # KO detection
-                # Se un lato è a 0.0 e 'fnt', contiamo chi ha "dato" il KO in questo turno.
                 if p1_state.get('hp_pct', 1.0) == 0.0 and p1_state.get('status') == 'fnt' and p2_move:
                     p1_kos_taken += 1
                 if p2_state.get('hp_pct', 1.0) == 0.0 and p2_state.get('status') == 'fnt' and p1_move:
@@ -264,7 +263,7 @@ def feature_extractor(data, pokedex):
             last_p2_boosts = {b:0 for b in boost_keys}
             turns_seen = {}
 
-        # --- Feature dinamiche aggregate (preesistenti + nuove) ---
+        # --- Aggregate dynamic features ---
         row['p1_hp_avg'] = np.mean(p1_hp_list) if p1_hp_list else 1.0
         row['p2_hp_avg'] = np.mean(p2_hp_list) if p2_hp_list else 1.0
         row['p1_hp_min'] = np.min(p1_hp_list) if p1_hp_list else 1.0
@@ -287,7 +286,7 @@ def feature_extractor(data, pokedex):
             row[f'last_p2_boost_{b}'] = p2_b_val
             row[f'last_boost_diff_{b}'] = p1_b_val - p2_b_val
 
-        # --- NEW: expose STAB & Effectiveness summary features ---
+        # --- Expose STAB & Effectiveness summary features ---
         row['p1_stab_moves'] = p1_stab_count
         row['p2_stab_moves'] = p2_stab_count
         row['p1_damaging_moves'] = p1_dmg_count
@@ -304,7 +303,7 @@ def feature_extractor(data, pokedex):
         row['p2_immune'] = p2_imm
         row['p2_neutral'] = p2_neu
 
-        # --- NEW: momentum & early game ---
+        # --- Momentum & early game ---
         row['p1_damage_sum'] = p1_damage_sum
         row['p2_damage_sum'] = p2_damage_sum
         row['damage_diff'] = p1_damage_sum - p2_damage_sum
@@ -339,7 +338,7 @@ def feature_extractor(data, pokedex):
         row['p2_speed_advantage_turns'] = p2_speed_advantage_turns
         row['speed_adv_turn_diff'] = p1_speed_advantage_turns - p2_speed_advantage_turns
 
-        # === 5️⃣ P2 squadra rivelata (basata su Pokédex) ===
+        # === Team P2 detected via pokedex ===
         p2_known_stats_by_key = {s: [] for s in stat_keys}
         p2_known_types = []
         for name in p2_seen_names:
@@ -362,7 +361,7 @@ def feature_extractor(data, pokedex):
         row['p2_known_team_type_diversity'] = len(set(p2_known_types))
         row['p2_known_team_size'] = len(p2_known_stats_by_key[stat_keys[0]])
 
-        # === 6️⃣ Bilanciamento P1 vs P2-Known ===
+        # === Balancing P1 vs P2-known ===
         for s in stat_keys:
             p1_mean = row[f'p1_team_{s}_mean']
             p2_known_mean = row[f'p2_known_team_{s}_mean']

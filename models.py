@@ -5,23 +5,23 @@ from lightgbm import LGBMClassifier
 SEED = 42
 
 cat_model = CatBoostClassifier(
-    iterations=300, # Puoi tenere 300, Optuna non l'ha testato
-    learning_rate=0.059240505706248246, # <-- Nuovo
-    depth=4,                             # <-- Nuovo
-    l2_leaf_reg=9.891914312064191,      # <-- Nuovo
     random_seed=SEED,
+    iterations=300, 
+    learning_rate=0.059240505706248246, 
+    depth=4,                             
+    l2_leaf_reg=9.891914312064191,      
     verbose=0,
-    allow_writing_files=False # Aggiungi questo per sicurezza
+    allow_writing_files=False 
 )
 
 xgb_model = XGBClassifier(
-    objective='binary:logistic',
     random_state=SEED,
+    objective='binary:logistic',
     tree_method='hist',
     eval_metric='logloss',
     use_label_encoder=False,
     verbosity=0,
-    n_estimators=400, # Manteniamo 400 estimators come da tuo codice
+    n_estimators=400, 
     learning_rate=0.03332571528034287,
     max_depth=4,
     reg_lambda=4.383753444005586,
@@ -30,9 +30,9 @@ xgb_model = XGBClassifier(
 )
 
 lgbm_model = LGBMClassifier(
-    objective='binary',
     random_state=SEED,
-    n_estimators=500, # Manteniamo 500 estimators come da tuo codice
+    objective='binary',
+    n_estimators=500, 
     verbosity=0,
     learning_rate=0.02774827931875224,
     num_leaves=29,
